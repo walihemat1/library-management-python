@@ -1,7 +1,7 @@
 from flask import Flask
 from routes.books_routes import books_bp
 from routes.users_routes import users_bp
-from routes.auth_routes import auth_bp
+# from routes.auth_routes import auth_bp
 import database
 
 def create_app():
@@ -14,7 +14,7 @@ def create_app():
     # Register blueprints
     app.register_blueprint(books_bp)
     app.register_blueprint(users_bp)
-    app.register_blueprint(auth_bp)
+    # app.register_blueprint(auth_bp)
 
     return app
 

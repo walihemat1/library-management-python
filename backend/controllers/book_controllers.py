@@ -38,6 +38,14 @@ def update_book(book_id, title, author, year, language):
     conn.commit()
     conn.close()
 
+def delete_book(book_id):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM books WHERE id = ?", (book_id,))
+    conn.commit()
+    conn.close()
+
+
 def set_availability(book_id, available):
     conn = get_connection()
     cur = conn.cursor()
