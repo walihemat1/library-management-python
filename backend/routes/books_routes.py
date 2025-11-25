@@ -79,7 +79,7 @@ def delete_book_route(book_id):
         return jsonify({"error": str(e)}), 500
 
 
-@books_bp.route("/books/checkout/<int:book_id>", methods=["DELETE"])
+@books_bp.route("/books/checkout/<int:book_id>", methods=["POST"])
 @login_required
 def checkout_book(book_id):
     try:

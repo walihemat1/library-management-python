@@ -3,13 +3,14 @@ import sqlite3
 DB_NAME = "library.db"
 
 def get_connection():
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_NAME, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
 
+
 def init_db():
-    conn = get_connection()
-    cur = conn.cursor()
+    with get_connection() as conn:
+        cur = conn.cursor()
 
     # Users table
     cur.execute("""
