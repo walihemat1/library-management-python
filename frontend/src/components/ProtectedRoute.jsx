@@ -1,6 +1,6 @@
-// src/pages/ProtectedRoute.jsx
 import { useSelector } from "react-redux";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import LoadingSpinner from "./LoadingSpinner";
 
 export default function ProtectedRoute({ allowedRoles }) {
   const { user, role, isAuthenticated, isLoading } = useSelector(
@@ -10,7 +10,7 @@ export default function ProtectedRoute({ allowedRoles }) {
   const location = useLocation();
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <LoadingSpinner />;
   }
 
   if (!isAuthenticated) {
@@ -22,8 +22,7 @@ export default function ProtectedRoute({ allowedRoles }) {
   if (allowedRoles && !allowedRoles.includes(userRole)) {
     if (userRole === "admin") return <Navigate to="/admin/dashboard" replace />;
     if (userRole === "librarian")
-      // return <Navigate to="/attendee/dashboard" replace />;
-      return <Navigate to="/unauthorized" state={{ from: location }} replace />;
+      return <Navigate to="/librarian/dashboard" replace />;
     return <Navigate to="/unauthorized" state={{ from: location }} replace />;
   }
 

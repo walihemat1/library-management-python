@@ -1,5 +1,8 @@
 // src/App.jsx
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { useEffect } from "react";
+import { fetchMe } from "./features/auth/authSlice";
 
 import PublicLayout from "./components/PublicLayout";
 import AppLayout from "./pages/AppLayout";
@@ -10,7 +13,6 @@ import PublicRoute from "./components/PublicRoute";
 
 // public pages
 import Login from "./pages/auth/Login";
-import Signup from "./pages/auth//Signup";
 
 // role-based route groups
 import AdminRoutes from "./components/AdminRoutes";
@@ -18,37 +20,40 @@ import LibrarianRoutes from "./components/LibrarianRoute";
 
 // other pages
 import Unauthorized from "./pages/Unauthorized";
-import Home from "./pages/Home";
-import ProfilePage from "./pages/Profile";
+import ProfilePage from "./features/profile/ProfilePage";
+import HistoryPage from "./features/history/HistoryPage";
 
 export default function App() {
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
+
+  useEffect(() => {
+    dispatch(fetchMe());
+  }, [dispatch]);
+
   return (
     <Routes>
-      {/* ---------- PUBLIC ROUTES (ONLY WHEN LOGGED OUT) ---------- */}
       <Route element={<PublicRoute />}>
-        <Route element={<PublicLayout />}>
-          <Route path="/" element={<Home />} />
+        <Route path="/" element={<PublicLayout />}>
           <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
         </Route>
       </Route>
 
-      {/* ---------- COMMON AUTHENTICATED ROUTES (ANY ROLE) ---------- */}
+      <Route index element={<Navigate to="/login" replace />} />
+
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/history" element={<HistoryPage />} />
         </Route>
       </Route>
 
-      {/* ---------- ADMIN AREA USING AdminRoutes ---------- */}
       <Route path="/admin/*" element={<AdminRoutes />} />
 
-      {/* ---------- ATTENDEE AREA USING AttendeeRoutes ---------- */}
       <Route path="/librarian/*" element={<LibrarianRoutes />} />
 
-      {/* ---------- UNAUTHORIZED & FALLBACK ---------- */}
       <Route path="/unauthorized" element={<Unauthorized />} />
-      {/* <Route path="/*" element={<Navigate to="/" replace />} /> */}
+      <Route path="/*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

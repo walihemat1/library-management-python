@@ -1,9 +1,39 @@
 from flask import Blueprint, request, jsonify, session
-from controllers.book_controllers import get_all_books, add_book, get_book, update_book, delete_book, set_availability
+from controllers.book_controllers import (
+    get_all_books,
+    add_book,
+    get_book,
+    update_book,
+    delete_book,
+    set_availability,
+)
 from controllers.checkout_controllers import checkout_book, return_book
+from controllers.checkout_controllers import get_open_checkout_entry
 from middleware.auth_middleware import login_required
+from controllers.checkout_controllers import book_history
+from middleware.auth_middleware import require_role
 
 books_bp = Blueprint("books_bp", __name__)
+
+
+@books_bp.route("/books/return/<int:book_id>", methods=["POST"])
+@login_required
+def return_by_book(book_id):
+    try:
+        user_id = session.get("user_id")
+
+        entry_id = get_open_checkout_entry(user_id, book_id)
+        if not entry_id:
+            return jsonify({"message": "No active checkout found for this book"}), 400
+
+        return_book(
+            entry_id, book_id
+        )  # this already sets available=1 in your controller
+        return jsonify({"message": "Book returned"}), 200
+
+    except Exception as e:
+        return jsonify({"message": "Something went wrong", "error": str(e)}), 500
+
 
 @books_bp.route("/books")
 @login_required
@@ -11,12 +41,10 @@ def show_books():
     try:
         books = get_all_books()
         return jsonify([dict(row) for row in books]), 200
-    
+
     except Exception as e:
-        return jsonify({
-            "message": "Something went wrong",
-            "error": str(e)
-        }), 500
+        return jsonify({"message": "Something went wrong", "error": str(e)}), 500
+
 
 @books_bp.route("/books/<int:book_id>", methods=["GET"])
 def get_book_route(book_id):
@@ -30,6 +58,7 @@ def get_book_route(book_id):
     except Exception as e:
         return jsonify({"message": "Something went wrong", "error": str(e)}), 500
 
+
 @books_bp.route("/books/add", methods=["POST"])
 @login_required
 def add_book_route():
@@ -37,38 +66,31 @@ def add_book_route():
         data = request.get_json()
         add_book(data["title"], data["author"], data["year"], data["language"])
         return jsonify({"message": "Book added"}), 201
-        
+
     except KeyError as e:
-        return jsonify({
-            "message": f"Missing field: {str(e)}"
-        }), 400
-    
+        return jsonify({"message": f"Missing field: {str(e)}"}), 400
+
     except Exception as e:
-        return jsonify({
-            "message": "Something went wrong",
-            "error": str(e)
-        }), 500
-    
+        return jsonify({"message": "Something went wrong", "error": str(e)}), 500
+
 
 @books_bp.route("/books/update/<int:book_id>", methods=["PUT"])
 @login_required
 def update_book_route(book_id):
     try:
         data = request.get_json()
-        update_book(book_id, data["title"], data["author"], data["year"], data["language"])
+        update_book(
+            book_id, data["title"], data["author"], data["year"], data["language"]
+        )
         return jsonify({"message": "Book updated"}), 200
-    
+
     except KeyError as e:
-        return jsonify({
-            "message": f"Missing field: {str(e)}"
-        }), 401
-    
+        return jsonify({"message": f"Missing field: {str(e)}"}), 401
+
     except Exception as e:
-        return jsonify({
-            "message": "Something went wrong",
-            "error": str(e)
-        }), 500
-    
+        return jsonify({"message": "Something went wrong", "error": str(e)}), 500
+
+
 @books_bp.route("/books/delete/<int:book_id>", methods=["DELETE"])
 @login_required
 def delete_book_route(book_id):
@@ -81,18 +103,16 @@ def delete_book_route(book_id):
 
 @books_bp.route("/books/checkout/<int:book_id>", methods=["POST"])
 @login_required
-def checkout_book(book_id):
+def checkout_book_route(book_id):
     try:
         user_id = session.get("user_id")
         checkout_book(user_id, book_id)
         set_availability(book_id, 0)
         return jsonify({"message": "Book checked out"}), 200
-    
+
     except Exception as e:
-        return jsonify({
-            "message": "Something went wrong",
-            "error": str(e)
-        }), 500
+        return jsonify({"message": "Something went wrong", "error": str(e)}), 500
+
 
 @books_bp.route("/books/return/<int:entry_id>/<int:book_id>", methods=["POST"])
 @login_required
@@ -100,15 +120,20 @@ def return_route(entry_id, book_id):
     try:
         return_book(entry_id, book_id)
         return jsonify({"message": "Book returned"}), 200
-    
-    except KeyError as e:
-        return jsonify({
-            "message": f"messing fields {str(e)}"
-        }), 400
-    
-    except Exception as e:
-        return jsonify({
-            "message": "Something went wrong",
-            "error": str(e)
-        }), 500
 
+    except KeyError as e:
+        return jsonify({"message": f"messing fields {str(e)}"}), 400
+
+    except Exception as e:
+        return jsonify({"message": "Something went wrong", "error": str(e)}), 500
+
+
+@books_bp.route("/books/history/<int:book_id>", methods=["GET"])
+@login_required
+@require_role("admin")
+def book_history_route(book_id):
+    try:
+        rows = book_history(book_id)
+        return jsonify([dict(r) for r in rows]), 200
+    except Exception as e:
+        return jsonify({"message": "Something went wrong", "error": str(e)}), 500

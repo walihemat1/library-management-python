@@ -1,1 +1,22 @@
 @import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg: 248 250 252;
+    --fg: 15 23 42;
+    --card: 255 255 255;
+    --border: 226 232 240;
+  }
+
+  .dark {
+    --bg: 15 23 42;
+    --fg: 241 245 249;
+    --card: 30 41 59;
+    --border: 51 65 85;
+  }
+
+  body {
+    background-color: rgb(var(--bg));
+    color: rgb(var(--fg));
+  }
+}

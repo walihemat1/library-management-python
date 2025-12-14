@@ -1,15 +1,15 @@
 // src/features/auth/authSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosClient from "../../app/axiosClient";
+import toast from "react-hot-toast";
 
 const storedAuth = localStorage.getItem("auth-library");
 const initialAuth = storedAuth ? JSON.parse(storedAuth) : null;
 
 const initialState = {
   user: initialAuth?.user || null,
-  token: initialAuth?.token || null,
   role: initialAuth?.role || null,
-  isAuthenticated: !!initialAuth?.token,
+  isAuthenticated: !!initialAuth?.user,
   isLoading: false,
   error: null,
 };
@@ -17,42 +17,44 @@ const initialState = {
 const persistAuth = (state) => {
   const authToStore = {
     user: state.user,
-    token: state.token,
     role: state.role,
   };
   localStorage.setItem("auth-library", JSON.stringify(authToStore));
 };
 
+/* ===================== GET ME ===================== */
+export const fetchMe = createAsyncThunk(
+  "auth/fetchMe",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await axiosClient.get("/me");
+      return res.data;
+    } catch (err) {
+      return rejectWithValue({
+        status: err.response?.status,
+        message: err.response?.data?.message || "Not authenticated",
+      });
+    }
+  }
+);
+
 /* ===================== REGISTER ===================== */
 export const register = createAsyncThunk(
   "auth/register",
-  async ({ email, password }, { rejectWithValue }) => {
+  async ({ name, email, password, role }, { rejectWithValue }) => {
     try {
-      const res = await axiosClient.post("/api/auth/register", {
+      const res = await axiosClient.post("/register", {
+        name,
         email,
         password,
+        role,
       });
-
-      const data = res.data;
-
-      if (!data.success) {
-        return rejectWithValue(data.message || "Registration failed");
-      }
-
-      // Derive username from email
-      const derivedUsername = email.split("@")[0];
-
-      return {
-        id: data.data.id,
-        email: data.data.email,
-        username: derivedUsername,
-      };
+      toast.success(res.data?.message || "Registered successfully");
+      return true;
     } catch (err) {
       const msg =
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        err.message ||
-        "Registration failed";
+        err.response?.data?.message || err.message || "Registration failed";
+      toast.error(msg);
       return rejectWithValue(msg);
     }
   }
@@ -61,50 +63,46 @@ export const register = createAsyncThunk(
 /* ===================== LOGIN ===================== */
 export const loginUser = createAsyncThunk(
   "auth/loginUser",
-  async ({ email, password }, { rejectWithValue }) => {
+  async ({ email, password }, { rejectWithValue, dispatch }) => {
     try {
-      const res = await axiosClient.post("/api/auth/login", {
-        email,
-        password,
-      });
+      const res = await axiosClient.post("/login", { email, password });
+      toast.success(res.data?.message || "Login successful");
 
-      const data = res.data;
-
-      if (!data.success) {
-        return rejectWithValue(data.message || "Login failed");
+      // If backend returns user object, use it
+      const u = res.data?.user;
+      if (u?.id) {
+        return {
+          user: {
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            username: u.email?.split("@")?.[0],
+            role: u.role,
+          },
+          role: u.role,
+        };
       }
 
-      // Derive username if backend doesn't send one
-      const derivedUsername =
-        data.data.username && data.data.username !== ""
-          ? data.data.username
-          : data.data.email.split("@")[0];
+      // Otherwise fetch from /me using the session cookie
+      const me = await dispatch(fetchMe()).unwrap();
 
-      const user = {
-        id: data.data.id,
-        email: data.data.email,
-        fullName: data.data.fullName,
-        username: derivedUsername,
-        role: data.data.role,
+      return {
+        user: {
+          id: me.id,
+          name: me.name,
+          email: me.email,
+          username: me.email?.split("@")?.[0],
+          role: me.role,
+        },
+        role: me.role,
       };
-
-      const token = data.token;
-
-      const authToStore = {
-        user,
-        token,
-        role: user.role || null,
-      };
-
-      localStorage.setItem("auth", JSON.stringify(authToStore));
-
-      return authToStore;
     } catch (err) {
       const msg =
         err.response?.data?.message ||
         err.response?.data?.error ||
         err.message ||
         "Login failed";
+      toast.error(msg);
       return rejectWithValue(msg);
     }
   }
@@ -115,22 +113,13 @@ export const logoutUser = createAsyncThunk(
   "auth/logoutUser",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await axiosClient.post("/api/auth/logout");
-
-      const data = res.data;
-
-      if (!data.success) {
-        return rejectWithValue(data.message || "Logout failed");
-      }
-
+      const res = await axiosClient.post("/logout");
+      toast.success(res.data?.message || "Logged out");
       localStorage.removeItem("auth-library");
       return true;
     } catch (err) {
-      const msg =
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        err.message ||
-        "Logout failed";
+      const msg = err.response?.data?.message || err.message || "Logout failed";
+      toast.error(msg);
       return rejectWithValue(msg);
     }
   }
@@ -142,51 +131,73 @@ const authSlice = createSlice({
   reducers: {
     resetAuthState: (state) => {
       state.user = null;
-      state.token = null;
       state.role = null;
       state.isAuthenticated = false;
       state.isLoading = false;
       state.error = null;
       localStorage.removeItem("auth-library");
     },
-
     updateAuthUser: (state, action) => {
       const updated = action.payload || {};
       if (!state.user) state.user = {};
       state.user = { ...state.user, ...updated };
-
       if (updated.role) state.role = updated.role;
-
       persistAuth(state);
     },
   },
-
   extraReducers: (builder) => {
     builder
-      /* -------- REGISTER -------- */
+      // fetchMe
+      .addCase(fetchMe.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchMe.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = {
+          id: action.payload.id,
+          name: action.payload.name,
+          email: action.payload.email,
+          username: action.payload.email?.split("@")?.[0],
+          role: action.payload.role,
+        };
+        state.role = action.payload.role;
+        state.isAuthenticated = true;
+        persistAuth(state);
+      })
+      .addCase(fetchMe.rejected, (state, action) => {
+        state.isLoading = false;
+        const status = action.payload?.status;
+
+        if (status === 401) {
+          state.user = null;
+          state.role = null;
+          state.isAuthenticated = false;
+          localStorage.removeItem("auth-library");
+        }
+      })
+
+      // register
       .addCase(register.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(register.fulfilled, (state) => {
         state.isLoading = false;
-        state.error = null;
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload || "Registration failed";
       })
 
-      /* -------- LOGIN -------- */
+      // login
       .addCase(loginUser.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.error = null;
         state.user = action.payload.user;
-        state.token = action.payload.token;
         state.role = action.payload.role;
         state.isAuthenticated = true;
         persistAuth(state);
@@ -197,7 +208,7 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
       })
 
-      /* -------- LOGOUT -------- */
+      // logout
       .addCase(logoutUser.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -205,11 +216,10 @@ const authSlice = createSlice({
       .addCase(logoutUser.fulfilled, (state) => {
         state.isLoading = false;
         state.user = null;
-        state.token = null;
         state.role = null;
         state.isAuthenticated = false;
         state.error = null;
-        localStorage.removeItem("auth");
+        localStorage.removeItem("auth-library");
       })
       .addCase(logoutUser.rejected, (state, action) => {
         state.isLoading = false;
