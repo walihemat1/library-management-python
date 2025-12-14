@@ -1,5 +1,5 @@
 from database import get_connection
-import datetime
+
 
 def get_all_books():
     conn = get_connection()
@@ -9,15 +9,20 @@ def get_all_books():
     conn.close()
     return rows
 
+
 def add_book(title, author, year, language):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(
+        """
         INSERT INTO books (title, author, year, language, available)
         VALUES (?, ?, ?, ?, 1)
-    """, (title, author, year, language))
+    """,
+        (title, author, year, language),
+    )
     conn.commit()
     conn.close()
+
 
 def get_book(book_id):
     conn = get_connection()
@@ -27,16 +32,21 @@ def get_book(book_id):
     conn.close()
     return row
 
+
 def update_book(book_id, title, author, year, language):
     conn = get_connection()
     cur = conn.cursor()
-    cur.execute("""
+    cur.execute(
+        """
         UPDATE books
         SET title = ?, author = ?, year = ?, language = ?
         WHERE id = ?
-    """, (title, author, year, language, book_id))
+    """,
+        (title, author, year, language, book_id),
+    )
     conn.commit()
     conn.close()
+
 
 def delete_book(book_id):
     conn = get_connection()
