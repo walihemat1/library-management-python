@@ -13,19 +13,19 @@ def init_db():
     with get_connection() as conn:
         cur = conn.cursor()
 
-    # Users table
-    cur.execute(
+        # Users table
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                role TEXT DEFAULT 'librarian',
+                is_active INTEGER DEFAULT 1
+            )
         """
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            role TEXT DEFAULT 'librarian',
-            is_active INTEGER DEFAULT 1
         )
-    """
-    )
 
     # Books table
     cur.execute(
